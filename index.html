@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CRM-дашборд | KrasAuto</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; padding: 20px; }
+        .container { max-width: 1400px; margin: 0 auto; }
+        h1 { color: #1a73e8; margin-bottom: 10px; }
+        .subtitle { color: #5f6368; margin-bottom: 30px; }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 30px; }
+        .stat-card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .stat-card h3 { font-size: 14px; color: #5f6368; margin-bottom: 10px; }
+        .stat-card .value { font-size: 32px; font-weight: bold; color: #1a73e8; }
+        .charts-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px; margin-bottom: 30px; }
+        .chart-card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .chart-card h3 { margin-bottom: 15px; color: #202124; }
+        canvas { max-height: 300px; }
+        .table-container { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #e0e0e0; }
+        th { background: #f8f9fa; font-weight: 600; color: #5f6368; }
+        .status-new { background: #e8f0fe; color: #1a73e8; padding: 4px 8px; border-radius: 12px; font-size: 12px; display: inline-block; }
+        .refresh-btn { background: #1a73e8; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; margin-bottom: 20px; }
+        .refresh-btn:hover { background: #1557b0; }
+        .footer { text-align: center; margin-top: 30px; color: #5f6368; font-size: 12px; }
+        .error-message { background: #fce8e6; color: #c5221f; padding: 12px; border-radius: 8px; margin-bottom: 20px; display: none; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>📊 KrasAuto CRM-дашборд</h1>
+    <div class="subtitle">Автоматизация заявок и аналитика в реальном времени</div>
+    
+    <div class="error-message" id="errorMessage"></div>
+    <button class="refresh-btn" onclick="loadData()">🔄 Обновить данные</button>
+    
+    <div class="stats-grid" id="stats">
+        <div class="stat-card"><h3>Всего заявок</h3><div class="value" id="totalCount">0</div></div>
+        <div class="stat-card"><h3>За сегодня</h3><div class="value" id="todayCount">0</div></div>
+        <div class="stat-card"><h3>Примерный доход</h3><div class="value" id="totalRevenue">0 ₽</div></div>
+        <div class="stat-card"><h3>Средний чек</h3><div class="value" id="avgCheck">0 ₽</div></div>
+    </div>
+    
+    <div class="charts-grid">
+        <div class="chart-card"><h3>📈 Заявки по дням</h3><canvas id="dailyChart"></canvas></div>
+        <div class="chart-card"><h3>🏢 По направлениям</h3><canvas id="businessChart"></canvas></div>
+        <div class="chart-card"><h3>👨‍🔧 Загрузка мастеров</h3><canvas id="mastersChart"></canvas></div>
+        <div class="chart-card"><h3>💰 Доход по услугам</h3><canvas id="servicesChart"></canvas></div>
+    </div>
+    
+    <div class="table-container">
+        <h3>📋 Все заявки</h3>
+        <table id="dataTable">
+            <thead>
+                <tr><th>Дата</th><th>Бизнес</th><th>Услуга</th><th>Мастер</th><th>Клиент</th><th>Сумма</th><th>Статус</th></tr>
+            </thead>
+            <tbody id="tableBody">
+                <tr><td colspan="7" style="text-align:center">Загрузка данных...</td></tr>
+            </tbody>
+        </table>
+    </div>
+    <div class="footer">Данные из Google Sheets | Обновляются автоматически</div>
+</div>
+
+<script>
+    // ✅ ПРАВИЛЬНАЯ CSV-ССЫЛКА (твоя таблица, опубликованная)
+    const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ-IC3RzABOwOMpdeeMYA4E-d3xdylxTBNS_bQXcDtGG1YI-aDRQ7kky3m2C0z-MkXYiKGgyRJbvvjr/pub?output=csv";
+    
+    let dailyChart, businessChart, mastersChart, servicesChart;
+    
+    async function loadData() {
+        const errorDiv = document.getElementById('errorMessage');
+        const tableBody = document.getElementById('tableBody');
+        
+        try {
+            tableBody.innerHTML = '<tr><td colspan="7" style="text-align:center">Загрузка данных...</td></tr>';
+            errorDiv.style.display = 'none';
+            
+            const url = CSV_URL + '&nocache=' + Date.now();
+            const response = await fetch(url);
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            
+            const csvText = await response.text();
+            
+            // Проверяем, не вернулась ли HTML-страница вместо CSV
+            if (csvText.includes('<!DOCTYPE') || csvText.includes('Sign in') || csvText.includes('Вход')) {
+                throw new Error('Таблица не опубликована правильно. Нужна CSV-ссылка (pub?output=csv)');
+            }
+            
+            const parsed = Papa.parse(csvText, { header: true, skipEmptyLines: true });
+            const data = parsed.data;
+            
+            // Фильтруем строки с датой
+            const validData = data.filter(row => row['Дата'] && row['Дата'].trim() && row['Дата'] !== 'Дата');
+            
+            if (validData.length === 0) {
+                tableBody.innerHTML = '<tr><td colspan="7" style="text-align:center">Нет данных. Сделайте тестовую запись через бота.</td></tr>';
+            }
+            
+            updateStats(validData);
+            updateCharts(validData);
+            updateTable(validData);
+            
+        } catch (error) {
+            console.error('Ошибка загрузки:', error);
+            errorDiv.style.display = 'block';
+            errorDiv.innerHTML = `⚠️ Ошибка: ${error.message}. Проверьте, что таблица опубликована как CSV.`;
+            tableBody.innerHTML = '<tr><td colspan="7" style="text-align:center">Ошибка загрузки данных</td></tr>';
+        }
+    }
+    
+    function updateStats(data) {
+        const total = data.length;
+        const today = new Date().toISOString().slice(0,10);
+        const todayData = data.filter(row => row['Дата'] && row['Дата'].startsWith(today));
+        
+        let totalRevenue = 0;
+        data.forEach(row => {
+            let price = parseInt(String(row['Сумма']).replace(/[^0-9]/g, '')) || 0;
+            totalRevenue += price;
+        });
+        
+        document.getElementById('totalCount').innerText = total;
+        document.getElementById('todayCount').innerText = todayData.length;
+        document.getElementById('totalRevenue').innerText = totalRevenue.toLocaleString() + ' ₽';
+        document.getElementById('avgCheck').innerText = total > 0 ? Math.round(totalRevenue/total).toLocaleString() + ' ₽' : '0 ₽';
+    }
+    
+    function updateCharts(data) {
+        // Заявки по дням
+        const dailyMap = new Map();
+        data.forEach(row => {
+            const date = row['Дата']?.split(' ')[0];
+            if (date) dailyMap.set(date, (dailyMap.get(date) || 0) + 1);
+        });
+        const sortedDates = Array.from(dailyMap.keys()).sort();
+        const dailyCounts = sortedDates.map(d => dailyMap.get(d));
+        
+        if (dailyChart) dailyChart.destroy();
+        const dailyCtx = document.getElementById('dailyChart')?.getContext('2d');
+        if (dailyCtx) {
+            dailyChart = new Chart(dailyCtx, {
+                type: 'line', 
+                data: { labels: sortedDates, datasets: [{ label: 'Заявки', data: dailyCounts, borderColor: '#1a73e8', tension: 0.3 }] }
+            });
+        }
+        
+        // По направлениям
+        const businessMap = new Map();
+        data.forEach(row => { const biz = row['Бизнес']; if (biz) businessMap.set(biz, (businessMap.get(biz) || 0) + 1); });
+        if (businessChart) businessChart.destroy();
+        const businessCtx = document.getElementById('businessChart')?.getContext('2d');
+        if (businessCtx && businessMap.size > 0) {
+            businessChart = new Chart(businessCtx, {
+                type: 'pie', 
+                data: { labels: Array.from(businessMap.keys()), datasets: [{ data: Array.from(businessMap.values()), backgroundColor: ['#1a73e8', '#34a853', '#fbbc04', '#ea4335'] }] }
+            });
+        }
+        
+        // По мастерам
+        const mastersMap = new Map();
+        data.forEach(row => { const master = row['Мастер']; if (master) mastersMap.set(master, (mastersMap.get(master) || 0) + 1); });
+        if (mastersChart) mastersChart.destroy();
+        const mastersCtx = document.getElementById('mastersChart')?.getContext('2d');
+        if (mastersCtx) {
+            mastersChart = new Chart(mastersCtx, {
+                type: 'bar', 
+                data: { labels: Array.from(mastersMap.keys()), datasets: [{ label: 'Количество записей', data: Array.from(mastersMap.values()), backgroundColor: '#34a853' }] }
+            });
+        }
+        
+        // Доход по услугам
+        const servicesMap = new Map();
+        data.forEach(row => {
+            const service = row['Услуга'];
+            let price = parseInt(String(row['Сумма']).replace(/[^0-9]/g, '')) || 0;
+            if (service) servicesMap.set(service, (servicesMap.get(service) || 0) + price);
+        });
+        if (servicesChart) servicesChart.destroy();
+        const servicesCtx = document.getElementById('servicesChart')?.getContext('2d');
+        if (servicesCtx) {
+            servicesChart = new Chart(servicesCtx, {
+                type: 'bar', 
+                data: { labels: Array.from(servicesMap.keys()), datasets: [{ label: 'Доход (₽)', data: Array.from(servicesMap.values()), backgroundColor: '#fbbc04' }] }
+            });
+        }
+    }
+    
+    function updateTable(data) {
+        const tbody = document.getElementById('tableBody');
+        if (!tbody) return;
+        tbody.innerHTML = '';
+        
+        if (data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center">Нет данных. Сделайте тестовую запись через бота.</td></tr>';
+            return;
+        }
+        
+        data.slice().reverse().forEach(row => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${row['Дата'] || ''}</td>
+                <td>${row['Бизнес'] || ''}</td>
+                <td>${row['Услуга'] || ''}</td>
+                <td>${row['Мастер'] || ''}</td>
+                <td>${row['Клиент'] || ''}</td>
+                <td>${row['Сумма'] || ''}</td>
+                <td><span class="status-new">${row['Статус'] || 'Новая'}</span></td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+    
+    loadData();
+    setInterval(loadData, 30000);
+</script>
+</body>
+</html>
