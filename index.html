@@ -20,13 +20,11 @@
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
         }
         
-        /* Контейнер */
         .container {
             max-width: 600px;
             margin: 0 auto;
         }
         
-        /* Заголовок */
         .header {
             text-align: center;
             margin-bottom: 20px;
@@ -41,7 +39,6 @@
             font-size: 13px;
         }
         
-        /* Кнопка обновления */
         .refresh-btn {
             background: white;
             color: #667eea;
@@ -56,7 +53,6 @@
             width: fit-content;
         }
         
-        /* Сетка статистики */
         .stats-grid {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
@@ -87,7 +83,6 @@
             font-weight: bold;
         }
         
-        /* Карточки графиков */
         .dashboard-card {
             background: white;
             border-radius: 16px;
@@ -105,14 +100,13 @@
         }
         .chart-container {
             position: relative;
-            min-height: 200px;
+            min-height: 220px;
         }
         canvas {
-            max-height: 200px;
+            max-height: 220px;
             width: 100%;
         }
         
-        /* Таблица — горизонтальная прокрутка */
         .table-container {
             overflow-x: auto;
             -webkit-overflow-scrolling: touch;
@@ -142,7 +136,6 @@
             display: inline-block;
         }
         
-        /* Ошибка */
         .error-message {
             background: #fce8e6;
             color: #c5221f;
@@ -153,7 +146,6 @@
             display: none;
         }
         
-        /* Футер */
         .footer {
             text-align: center;
             color: rgba(255,255,255,0.7);
@@ -161,7 +153,6 @@
             margin-top: 20px;
         }
         
-        /* Для очень маленьких экранов */
         @media (max-width: 480px) {
             body { padding: 12px; }
             .stat-card .value { font-size: 20px; }
@@ -181,7 +172,6 @@
     
     <div class="error-message" id="errorMessage"></div>
     
-    <!-- Статистика -->
     <div class="stats-grid" id="stats">
         <div class="stat-card">
             <i>📋</i>
@@ -205,7 +195,6 @@
         </div>
     </div>
     
-    <!-- Графики -->
     <div class="dashboard-card">
         <h5>📈 Заявки по дням</h5>
         <div class="chart-container">
@@ -234,7 +223,6 @@
         </div>
     </div>
     
-    <!-- Таблица заявок -->
     <div class="dashboard-card">
         <h5>📋 Все заявки</h5>
         <div class="table-container">
@@ -258,6 +246,12 @@
     const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ-IC3RzABOwOMpdeeMYA4E-d3xdylxTBNS_bQXcDtGG1YI-aDRQ7kky3m2C0z-MkXYiKGgyRJbvvjr/pub?output=csv";
     
     let dailyChart, businessChart, mastersChart, servicesChart;
+    
+    // Функция для сокращения длинных названий
+    function shortenLabel(label, maxLen = 12) {
+        if (!label) return '';
+        return label.length > maxLen ? label.substring(0, maxLen) + '…' : label;
+    }
     
     async function loadData() {
         const errorDiv = document.getElementById('errorMessage');
@@ -326,7 +320,15 @@
         if (dailyCtx) {
             dailyChart = new Chart(dailyCtx, {
                 type: 'line', 
-                data: { labels: sortedDates, datasets: [{ label: 'Заявки', data: dailyCounts, borderColor: '#667eea', backgroundColor: 'rgba(102,126,234,0.1)', tension: 0.3, fill: true }] }
+                data: { 
+                    labels: sortedDates.map(d => shortenLabel(d, 8)), 
+                    datasets: [{ label: 'Заявки', data: dailyCounts, borderColor: '#667eea', backgroundColor: 'rgba(102,126,234,0.1)', tension: 0.3, fill: true }] 
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: { legend: { position: 'top' }, tooltip: { enabled: true } }
+                }
             });
         }
         
@@ -338,11 +340,19 @@
         if (businessCtx && businessMap.size > 0) {
             businessChart = new Chart(businessCtx, {
                 type: 'pie', 
-                data: { labels: Array.from(businessMap.keys()), datasets: [{ data: Array.from(businessMap.values()), backgroundColor: ['#667eea', '#34a853', '#fbbc04', '#ea4335'] }] }
+                data: { 
+                    labels: Array.from(businessMap.keys()).map(b => shortenLabel(b, 15)), 
+                    datasets: [{ data: Array.from(businessMap.values()), backgroundColor: ['#667eea', '#34a853', '#fbbc04', '#ea4335'] }] 
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } }
+                }
             });
         }
         
-        // По мастерам
+        // По мастерам — горизонтальные подписи
         const mastersMap = new Map();
         data.forEach(row => { const master = row['Мастер']; if (master) mastersMap.set(master, (mastersMap.get(master) || 0) + 1); });
         if (mastersChart) mastersChart.destroy();
@@ -350,11 +360,23 @@
         if (mastersCtx) {
             mastersChart = new Chart(mastersCtx, {
                 type: 'bar', 
-                data: { labels: Array.from(mastersMap.keys()), datasets: [{ label: 'Записей', data: Array.from(mastersMap.values()), backgroundColor: '#34a853', borderRadius: 8 }] }
+                data: { 
+                    labels: Array.from(mastersMap.keys()).map(m => shortenLabel(m, 12)), 
+                    datasets: [{ label: 'Записей', data: Array.from(mastersMap.values()), backgroundColor: '#34a853', borderRadius: 6 }] 
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: { legend: { position: 'top' } },
+                    scales: { 
+                        y: { beginAtZero: true, ticks: { stepSize: 1 } },
+                        x: { ticks: { autoSkip: true, maxRotation: 0, minRotation: 0, font: { size: 10 } } }
+                    }
+                }
             });
         }
         
-        // Доход по услугам
+        // Доход по услугам — горизонтальные подписи
         const servicesMap = new Map();
         data.forEach(row => {
             const service = row['Услуга'];
@@ -366,7 +388,19 @@
         if (servicesCtx) {
             servicesChart = new Chart(servicesCtx, {
                 type: 'bar', 
-                data: { labels: Array.from(servicesMap.keys()), datasets: [{ label: 'Доход (₽)', data: Array.from(servicesMap.values()), backgroundColor: '#fbbc04', borderRadius: 8 }] }
+                data: { 
+                    labels: Array.from(servicesMap.keys()).map(s => shortenLabel(s, 12)), 
+                    datasets: [{ label: 'Доход (₽)', data: Array.from(servicesMap.values()), backgroundColor: '#fbbc04', borderRadius: 6 }] 
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: { legend: { position: 'top' } },
+                    scales: { 
+                        y: { beginAtZero: true },
+                        x: { ticks: { autoSkip: true, maxRotation: 0, minRotation: 0, font: { size: 10 } } }
+                    }
+                }
             });
         }
     }
@@ -385,10 +419,10 @@
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td style="white-space: nowrap;">${row['Дата']?.split(' ')[0] || ''}</td>
-                <td>${row['Бизнес'] || ''}</td>
-                <td>${(row['Услуга'] || '').substring(0, 20)}${(row['Услуга'] || '').length > 20 ? '…' : ''}</td>
-                <td>${(row['Мастер'] || '').substring(0, 15)}</td>
-                <td>${row['Клиент'] || ''}</td>
+                <td>${shortenLabel(row['Бизнес'] || '', 10)}</td>
+                <td>${shortenLabel(row['Услуга'] || '', 15)}</td>
+                <td>${shortenLabel(row['Мастер'] || '', 12)}</td>
+                <td>${shortenLabel(row['Клиент'] || '', 10)}</td>
                 <td style="white-space: nowrap;">${row['Сумма'] || ''}</td>
                 <td><span class="status-badge">${row['Статус'] || 'Новая'}</span></td>
             `;
