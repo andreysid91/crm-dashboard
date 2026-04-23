@@ -2,240 +2,255 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
     <title>CRM-дашборд | KrasAuto</title>
-    
-    <!-- Bootstrap 5 -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
-    
     <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
         body {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
-            padding: 15px;
+            padding: 16px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
         }
-        .dashboard-card {
+        
+        /* Контейнер */
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        
+        /* Заголовок */
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .header h1 {
+            color: white;
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+        .header .subtitle {
+            color: rgba(255,255,255,0.8);
+            font-size: 13px;
+        }
+        
+        /* Кнопка обновления */
+        .refresh-btn {
             background: white;
-            border-radius: 20px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
-            padding: 20px;
+            color: #667eea;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 50px;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            display: block;
+            margin: 0 auto 20px auto;
+            width: fit-content;
+        }
+        
+        /* Сетка статистики */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
             margin-bottom: 20px;
         }
         .stat-card {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             border-radius: 16px;
-            padding: 15px;
+            padding: 16px 12px;
             text-align: center;
-            height: 100%;
+        }
+        .stat-card i {
+            font-size: 28px;
+            display: block;
+            margin-bottom: 8px;
+            opacity: 0.9;
         }
         .stat-card h3 {
-            font-size: 13px;
-            opacity: 0.9;
-            margin-bottom: 8px;
+            font-size: 12px;
+            opacity: 0.8;
+            margin-bottom: 6px;
+            font-weight: normal;
         }
         .stat-card .value {
             font-size: 24px;
             font-weight: bold;
         }
-        .stat-card i {
-            font-size: 24px;
-            margin-bottom: 8px;
+        
+        /* Карточки графиков */
+        .dashboard-card {
+            background: white;
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 16px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .dashboard-card h5 {
+            font-size: 16px;
+            margin-bottom: 12px;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
         .chart-container {
             position: relative;
-            min-height: 220px;
+            min-height: 200px;
         }
-        /* Компактная таблица — без горизонтальной прокрутки */
+        canvas {
+            max-height: 200px;
+            width: 100%;
+        }
+        
+        /* Таблица — горизонтальная прокрутка */
         .table-container {
-            overflow-x: visible;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
         }
-        .table {
+        table {
+            width: 100%;
+            border-collapse: collapse;
             font-size: 12px;
-            margin-bottom: 0;
+            min-width: 500px;
         }
-        .table th, .table td {
-            padding: 8px 6px;
-            white-space: nowrap;
+        th, td {
+            padding: 10px 8px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
         }
-        /* На мобилках убираем некоторые столбцы */
-        @media (max-width: 768px) {
-            .table .hide-mobile {
-                display: none;
-            }
-            .stat-card .value { font-size: 20px; }
-            h1 { font-size: 1.4rem; }
-            .dashboard-card { padding: 15px; }
-        }
-        @media (max-width: 576px) {
-            .table .hide-small {
-                display: none;
-            }
+        th {
+            background: #f5f5f5;
+            font-weight: 600;
+            color: #555;
         }
         .status-badge {
             background: #e8f0fe;
             color: #1a73e8;
-            padding: 2px 8px;
+            padding: 4px 8px;
             border-radius: 20px;
             font-size: 11px;
             display: inline-block;
-            white-space: nowrap;
         }
-        .refresh-btn {
-            background: white;
-            color: #667eea;
-            border: none;
-            padding: 8px 20px;
-            border-radius: 50px;
-            font-weight: 600;
-            font-size: 14px;
-            cursor: pointer;
-            margin-bottom: 20px;
+        
+        /* Ошибка */
+        .error-message {
+            background: #fce8e6;
+            color: #c5221f;
+            padding: 12px;
+            border-radius: 12px;
+            margin-bottom: 16px;
+            font-size: 13px;
+            display: none;
         }
+        
+        /* Футер */
         .footer {
             text-align: center;
             color: rgba(255,255,255,0.7);
             font-size: 11px;
             margin-top: 20px;
         }
-        .error-message {
-            background: #fce8e6;
-            color: #c5221f;
-            padding: 10px 15px;
-            border-radius: 12px;
-            margin-bottom: 20px;
-            font-size: 13px;
-            display: none;
-        }
-        h1 {
-            color: white;
-            font-size: 1.6rem;
-            margin-bottom: 5px;
-        }
-        .subtitle {
-            color: rgba(255,255,255,0.8);
-            font-size: 14px;
-            margin-bottom: 15px;
-        }
-        /* Для очень маленьких экранов — карточки статистики в 2 ряда */
+        
+        /* Для очень маленьких экранов */
         @media (max-width: 480px) {
-            .stat-card .value { font-size: 18px; }
-            .stat-card h3 { font-size: 11px; }
+            body { padding: 12px; }
+            .stat-card .value { font-size: 20px; }
+            .stat-card i { font-size: 24px; }
+            .header h1 { font-size: 20px; }
         }
     </style>
 </head>
 <body>
-
 <div class="container">
-    <div class="text-center mb-3">
-        <h1><i class="bi bi-graph-up"></i> KrasAuto CRM</h1>
+    <div class="header">
+        <h1>📊 KrasAuto CRM</h1>
         <div class="subtitle">Автоматизация заявок и аналитика</div>
     </div>
     
-    <div class="text-center">
-        <button class="refresh-btn" onclick="loadData()">
-            <i class="bi bi-arrow-repeat"></i> Обновить
-        </button>
-    </div>
+    <button class="refresh-btn" onclick="loadData()">🔄 Обновить</button>
     
     <div class="error-message" id="errorMessage"></div>
     
-    <!-- Статистика 4 карточки -->
-    <div class="row g-2 mb-4" id="stats">
-        <div class="col-6 col-md-3">
-            <div class="stat-card">
-                <i class="bi bi-calendar-check"></i>
-                <h3>Всего заявок</h3>
-                <div class="value" id="totalCount">0</div>
-            </div>
+    <!-- Статистика -->
+    <div class="stats-grid" id="stats">
+        <div class="stat-card">
+            <i>📋</i>
+            <h3>Всего заявок</h3>
+            <div class="value" id="totalCount">0</div>
         </div>
-        <div class="col-6 col-md-3">
-            <div class="stat-card">
-                <i class="bi bi-sun"></i>
-                <h3>За сегодня</h3>
-                <div class="value" id="todayCount">0</div>
-            </div>
+        <div class="stat-card">
+            <i>📅</i>
+            <h3>За сегодня</h3>
+            <div class="value" id="todayCount">0</div>
         </div>
-        <div class="col-6 col-md-3">
-            <div class="stat-card">
-                <i class="bi bi-currency-ruble"></i>
-                <h3>Доход</h3>
-                <div class="value" id="totalRevenue">0 ₽</div>
-            </div>
+        <div class="stat-card">
+            <i>💰</i>
+            <h3>Доход</h3>
+            <div class="value" id="totalRevenue">0 ₽</div>
         </div>
-        <div class="col-6 col-md-3">
-            <div class="stat-card">
-                <i class="bi bi-receipt"></i>
-                <h3>Средний чек</h3>
-                <div class="value" id="avgCheck">0 ₽</div>
-            </div>
+        <div class="stat-card">
+            <i>📊</i>
+            <h3>Средний чек</h3>
+            <div class="value" id="avgCheck">0 ₽</div>
         </div>
     </div>
     
     <!-- Графики -->
-    <div class="row g-3 mb-4">
-        <div class="col-12 col-md-6">
-            <div class="dashboard-card">
-                <h6><i class="bi bi-calendar-week"></i> Заявки по дням</h6>
-                <div class="chart-container">
-                    <canvas id="dailyChart"></canvas>
-                </div>
-            </div>
-        </div>
-        <div class="col-12 col-md-6">
-            <div class="dashboard-card">
-                <h6><i class="bi bi-pie-chart"></i> По направлениям</h6>
-                <div class="chart-container">
-                    <canvas id="businessChart"></canvas>
-                </div>
-            </div>
-        </div>
-        <div class="col-12 col-md-6">
-            <div class="dashboard-card">
-                <h6><i class="bi bi-people"></i> Загрузка мастеров</h6>
-                <div class="chart-container">
-                    <canvas id="mastersChart"></canvas>
-                </div>
-            </div>
-        </div>
-        <div class="col-12 col-md-6">
-            <div class="dashboard-card">
-                <h6><i class="bi bi-cash-stack"></i> Доход по услугам</h6>
-                <div class="chart-container">
-                    <canvas id="servicesChart"></canvas>
-                </div>
-            </div>
+    <div class="dashboard-card">
+        <h5>📈 Заявки по дням</h5>
+        <div class="chart-container">
+            <canvas id="dailyChart"></canvas>
         </div>
     </div>
     
-    <!-- Таблица заявок (компактная) -->
     <div class="dashboard-card">
-        <h6><i class="bi bi-table"></i> Все заявки</h6>
+        <h5>🥧 По направлениям</h5>
+        <div class="chart-container">
+            <canvas id="businessChart"></canvas>
+        </div>
+    </div>
+    
+    <div class="dashboard-card">
+        <h5>👨‍🔧 Загрузка мастеров</h5>
+        <div class="chart-container">
+            <canvas id="mastersChart"></canvas>
+        </div>
+    </div>
+    
+    <div class="dashboard-card">
+        <h5>💰 Доход по услугам</h5>
+        <div class="chart-container">
+            <canvas id="servicesChart"></canvas>
+        </div>
+    </div>
+    
+    <!-- Таблица заявок -->
+    <div class="dashboard-card">
+        <h5>📋 Все заявки</h5>
         <div class="table-container">
-            <table class="table table-hover table-sm" id="dataTable">
+            <table id="dataTable">
                 <thead>
-                    <tr>
-                        <th>Дата</th>
-                        <th>Бизнес</th>
-                        <th>Услуга</th>
-                        <th class="hide-mobile">Мастер</th>
-                        <th class="hide-small">Клиент</th>
-                        <th>Сумма</th>
-                        <th>Статус</th>
-                    </tr>
+                    <tr><th>Дата</th><th>Бизнес</th><th>Услуга</th><th>Мастер</th><th>Клиент</th><th>Сумма</th><th>Статус</th></tr>
                 </thead>
                 <tbody id="tableBody">
-                    <tr><td colspan="7" class="text-center">Загрузка...</td></tr>
+                    <tr><td colspan="7" style="text-align:center">Загрузка...</td></tr>
                 </tbody>
             </table>
         </div>
     </div>
     
     <div class="footer">
-        <i class="bi bi-google"></i> Google Sheets | Обновление: 30 сек
+        📊 Данные из Google Sheets | Обновление: 30 сек
     </div>
 </div>
 
@@ -249,7 +264,7 @@
         const tableBody = document.getElementById('tableBody');
         
         try {
-            tableBody.innerHTML = '<tr><td colspan="7" class="text-center"><i class="bi bi-hourglass-split"></i> Загрузка...</td></tr>';
+            tableBody.innerHTML = '<tr><td colspan="7" style="text-align:center">⏳ Загрузка...</td></tr>';
             errorDiv.style.display = 'none';
             
             const url = CSV_URL + '&nocache=' + Date.now();
@@ -274,8 +289,8 @@
         } catch (error) {
             console.error('Ошибка:', error);
             errorDiv.style.display = 'block';
-            errorDiv.innerHTML = `<i class="bi bi-exclamation-triangle"></i> ${error.message}`;
-            tableBody.innerHTML = '<tr><td colspan="7" class="text-center">❌ Ошибка</td></tr>';
+            errorDiv.innerHTML = `⚠️ ${error.message}`;
+            tableBody.innerHTML = '<tr><td colspan="7" style="text-align:center">❌ Ошибка загрузки</td></tr>';
         }
     }
     
@@ -297,6 +312,7 @@
     }
     
     function updateCharts(data) {
+        // Заявки по дням
         const dailyMap = new Map();
         data.forEach(row => {
             const date = row['Дата']?.split(' ')[0];
@@ -314,6 +330,7 @@
             });
         }
         
+        // По направлениям
         const businessMap = new Map();
         data.forEach(row => { const biz = row['Бизнес']; if (biz) businessMap.set(biz, (businessMap.get(biz) || 0) + 1); });
         if (businessChart) businessChart.destroy();
@@ -325,6 +342,7 @@
             });
         }
         
+        // По мастерам
         const mastersMap = new Map();
         data.forEach(row => { const master = row['Мастер']; if (master) mastersMap.set(master, (mastersMap.get(master) || 0) + 1); });
         if (mastersChart) mastersChart.destroy();
@@ -336,6 +354,7 @@
             });
         }
         
+        // Доход по услугам
         const servicesMap = new Map();
         data.forEach(row => {
             const service = row['Услуга'];
@@ -358,7 +377,7 @@
         tbody.innerHTML = '';
         
         if (data.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" class="text-center">📭 Нет данных. Сделайте запись через бота.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center">📭 Нет данных</td></tr>';
             return;
         }
         
@@ -368,8 +387,8 @@
                 <td style="white-space: nowrap;">${row['Дата']?.split(' ')[0] || ''}</td>
                 <td>${row['Бизнес'] || ''}</td>
                 <td>${(row['Услуга'] || '').substring(0, 20)}${(row['Услуга'] || '').length > 20 ? '…' : ''}</td>
-                <td class="hide-mobile">${(row['Мастер'] || '').substring(0, 15)}</td>
-                <td class="hide-small">${row['Клиент'] || ''}</td>
+                <td>${(row['Мастер'] || '').substring(0, 15)}</td>
+                <td>${row['Клиент'] || ''}</td>
                 <td style="white-space: nowrap;">${row['Сумма'] || ''}</td>
                 <td><span class="status-badge">${row['Статус'] || 'Новая'}</span></td>
             `;
